@@ -88,12 +88,24 @@ const RoomPage = () => {
     });
   }, []);
 
+
+  const handleUserDisconnected = useCallback(async(data) => {
+    console.log("disconnected", data);
+    if (peer.peer) {
+      peer.peer.close();
+      peer.peer = null;
+      setRemoteStream(null);
+    }
+  },[])
+
   useEffect(() => {
     socket.on("user:joined", handleUserJoined);
     socket.on("incomming:call", handleIncommingCall);
     socket.on("call:accepted", handleCallAccepted);
     socket.on("peer:nego:needed", handleNegoNeedIncomming);
     socket.on("peer:nego:final", handleNegoNeedFinal);
+    socket.on("user:disconnected", handleUserDisconnected);
+
 
     return () => {
       socket.off("user:joined", handleUserJoined);
@@ -101,6 +113,8 @@ const RoomPage = () => {
       socket.off("call:accepted", handleCallAccepted);
       socket.off("peer:nego:needed", handleNegoNeedIncomming);
       socket.off("peer:nego:final", handleNegoNeedFinal);
+      socket.off("user:disconnected", handleUserDisconnected);
+
     };
   }, [
     socket,
@@ -123,7 +137,7 @@ const toggleAudio = () => {
     track.enabled = !isAudioOn; 
   });
 };
-
+  
   return (
     <div>
       <h1>Room Page</h1>
@@ -136,6 +150,8 @@ const toggleAudio = () => {
       <button onClick={toggleAudio}>
         {isAudioOn ? "Turn Off Audio" : "Turn On Audio"}
       </button>
+
+      <button>stop streaming me</button>
       {myStream && (
         <>
           <h1>My Stream</h1>
@@ -148,7 +164,7 @@ const toggleAudio = () => {
           />
         </>
       )}
-      
+
       {remoteStream && (
         <>
           <h1>Remote Stream</h1>
