@@ -30,11 +30,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("user:call", ({ to, offer }) => {
-    io.to(to).emit("incomming:call", { from: socket.id, offer });
+    io.to(to).emit("incomming:call", { from: socket.id, offer });//3
   });
 
   socket.on("call:accepted", ({ to, ans }) => {
-    io.to(to).emit("call:accepted", { from: socket.id, ans });
+    io.to(to).emit("call:accepted", { from: socket.id, ans });//6
   });
 
   socket.on("peer:nego:needed", ({ to, offer }) => {
@@ -46,6 +46,10 @@ io.on("connection", (socket) => {
     console.log("peer:nego:done", ans);
     io.to(to).emit("peer:nego:final", { from: socket.id, ans });
   });
+
+  socket.on("start:streaming", ({ to }) => {
+    io.to(to).emit("start:streaming");
+  })
   socket.on("left:room", () => {
     console.log("left")
   })
