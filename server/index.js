@@ -6,57 +6,63 @@ const io = new Server(8000, {
 
 const emailToSocketIdMap = new Map();
 const socketidToEmailMap = new Map();
+
 const socketIdToRoomMap = new Map();
 var users = {};
 
 io.on("connection", (socket) => {
   console.log(`Socket Connected`, socket.id);
   socket.on("room:join", (data) => {
-    const { email, room } = data;
-    emailToSocketIdMap.set(email, socket.id);
-    socketidToEmailMap.set(socket.id, email);
+    const { room } = data;
     socketIdToRoomMap.set(socket.id, room);
     if (room in users) {
       users[room].push(socket.id)
     } else {
       users[room] = [socket.id]
     }
+    var otherUsersInThisRoom = [];
+    users[room].forEach(user => {
+      if (socket.id != user) {
+        otherUsersInThisRoom.push(user);
+        io.to(user).emit("userJoined", socket.id);
+      }
+    });
 
-
-
-    io.to(room).emit("user:joined", { email, id: socket.id });
-    socket.join(room);
-    io.to(socket.id).emit("room:join", data);
+    io.to(socket.id).emit("otherUsersInThisRoom", { otherUsersInThisRoom });
   });
 
   socket.on("user:call", ({ to, offer }) => {
-    io.to(to).emit("incomming:call", { from: socket.id, offer });//3
+    io.to(to).emit("incomming:call", { from: socket.id, offer });
   });
 
   socket.on("call:accepted", ({ to, ans }) => {
-    io.to(to).emit("call:accepted", { from: socket.id, ans });//6
+    io.to(to).emit("call:accepted", { from: socket.id, ans });
   });
 
   socket.on("peer:nego:needed", ({ to, offer }) => {
-    // console.log("peer:nego:needed", offer);
+    // console.log("peer:nego:needed", to, offer)
     io.to(to).emit("peer:nego:needed", { from: socket.id, offer });
   });
 
   socket.on("peer:nego:done", ({ to, ans }) => {
-    console.log("peer:nego:done", ans);
+    // console.log("peer:nego:done", ans);
     io.to(to).emit("peer:nego:final", { from: socket.id, ans });
   });
 
   socket.on("start:streaming", ({ to }) => {
-    io.to(to).emit("start:streaming");
+    io.to(to).emit("start:streaming1");
   })
   socket.on("left:room", () => {
     console.log("left")
   })
 
   socket.on("disconnect", () => {
-    console.log(`Socket Disconnected`, socket.id, users);
     const roomId = socketIdToRoomMap.get(socket.id);
+    console.log(users)
+    if (users[roomId]) {
+      users[roomId] = users[roomId].filter(user => user != socket.id);
+    }
+    console.log(users)
     if (roomId) {
       users[roomId].forEach(user => {
         if (socket.id != user) {

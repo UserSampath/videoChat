@@ -10,6 +10,10 @@ class PeerService {
             ],
           },
         ],
+        // Add video: true for video calls
+        sdpSemantics: 'unified-plan',
+        rtcpMuxPolicy: 'require',
+        video: true,
       });
     }
   }
@@ -17,7 +21,10 @@ class PeerService {
   async getAnswer(offer) {
     if (this.peer) {
       await this.peer.setRemoteDescription(offer);
-      const ans = await this.peer.createAnswer();
+      const ans = await this.peer.createAnswer({
+        offerToReceiveAudio: 1, // Enable audio receiving
+        offerToReceiveVideo: 1, // Enable video receiving
+      });
       await this.peer.setLocalDescription(new RTCSessionDescription(ans));
       return ans;
     }
@@ -31,11 +38,14 @@ class PeerService {
 
   async getOffer() {
     if (this.peer) {
-      const offer = await this.peer.createOffer();
+      const offer = await this.peer.createOffer({
+        offerToReceiveAudio: 1, // Enable audio receiving
+        offerToReceiveVideo: 1, // Enable video receiving
+      });
       await this.peer.setLocalDescription(new RTCSessionDescription(offer));
       return offer;
     }
   }
 }
 
-export default new PeerService();
+export default PeerService;
