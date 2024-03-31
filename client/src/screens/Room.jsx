@@ -15,19 +15,19 @@ const RoomPage = () => {
   const [isAudioOn, setIsAudioOn] = useState(true);
 
   useEffect(() => {
-    const userVideo = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({
+    socket.emit("room:join", { room: roomId });
+  }, []);
+
+  const handleOtherUsersInThisRoom = useCallback(async ({ otherUsersInThisRoom }) => {
+     const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true,
       });
       setMyStream(stream);
-    };
-    userVideo();
-    socket.emit("room:join", { room: roomId });
-  }, []);
-
-  const handleOtherUsersInThisRoom = useCallback(({ otherUsersInThisRoom }) => {
     console.log("otherUsersInThisRoom", otherUsersInThisRoom);
+    otherUsersInThisRoom.forEach((user) => { 
+      handleCallUser(user);
+    })
   }, []);
 
   const handleUserJoined = useCallback((joinedUserId) => {
@@ -36,16 +36,29 @@ const RoomPage = () => {
     handleCallUser(joinedUserId);
   }, []);
 
-  const handleCallUser = useCallback(
+  const handleCallExistingUser = useCallback(
     async (id) => {
       console.log("handleCallUser", id);
       const peerService = new PeerService();
       const offer = await peerService.getOffer();
-      setPeerConnections((prev) => [...prev, { id: id, peer: peerService }]);
-      socket.emit("user:call", { to: id, offer });
+      setPeerConnections((prev) => [
+        ...prev,
+        { id: `existing_${id}`, peer: peerService },
+      ]);
+      socket.emit("existing:user:call", { to: id, offer });
     },
     [socket]
   );
+    const handleCallUser = useCallback(
+      async (id) => {
+        console.log("handleCallUser", id);
+        const peerService = new PeerService();
+        const offer = await peerService.getOffer();
+        setPeerConnections((prev) => [...prev, { id: id, peer: peerService }]);
+        socket.emit("user:call", { to: id, offer });
+      },
+      [socket]
+    );
   const handleIncommingCall = useCallback(
     async ({ from, offer }) => {
       console.log(`Incoming Call`, from, offer);
@@ -56,6 +69,19 @@ const RoomPage = () => {
     },
     [socket]
   );
+    const handleIncommingCallExisting = useCallback(
+      async ({ from, offer }) => {
+        console.log(`Incoming Call`, from, offer);
+        const peerService = new PeerService();
+        const ans = await peerService.getAnswer(offer);
+        setPeerConnections((prev) => [
+          ...prev,
+          { id:`existing_${from}`, peer: peerService },
+        ]);
+        socket.emit("call:accepted", { to: from, ans });
+      },
+      [socket]
+    );
   const handleCallAccepted = useCallback(
     async ({ from, ans }) => {
       console.log("handleCallAccepted", from, ans);
@@ -64,27 +90,34 @@ const RoomPage = () => {
           console.log(peer, "accepted");
           peer.peer.setLocalDescription(ans);
           console.log("Call Accepted! sendStreams");
+
+        
           sendStreams(from);
         }
       });
     },
-    [peerConnections]
+    [peerConnections,myStream]
   );
-
-  const sendStreams = useCallback(
-    (id) => {
-      console.log("sendStreams", peerConnections, id);
+const sendStreams = useCallback(
+  (id) => {
+    console.log("sendStreams", peerConnections, id);
+    if (myStream) {
       peerConnections.forEach((peer) => {
-        if (peer.id == id) {
+        if (peer.id === id) {
           console.log(peer.peer, "in for");
           for (const track of myStream.getTracks()) {
             peer.peer.peer.addTrack(track, myStream);
           }
         }
       });
-    },
-    [myStream, peerConnections]
-  );
+    } else {
+      console.error("myStream is not available yet");
+      // Repeat the function call after a short delay
+      setTimeout(() => sendStreams(id), 1000); // Adjust the delay as needed
+    }
+  },
+  [myStream, peerConnections]
+);
 
   const handleNegoNeeded = useCallback(
     async (id) => {
@@ -162,6 +195,9 @@ const RoomPage = () => {
     socket.on("peer:nego:needed", handleNegoNeedIncomming);
     socket.on("peer:nego:final", handleNegoNeedFinal);
     socket.on("start:streaming1", handleStartStreaming);
+    socket.on("incomming:call:existing", handleIncommingCallExisting);
+
+
 
     return () => {
       socket.off("otherUsersInThisRoom", handleOtherUsersInThisRoom);
@@ -171,6 +207,8 @@ const RoomPage = () => {
       socket.off("peer:nego:needed", handleNegoNeedIncomming);
       socket.off("peer:nego:final", handleNegoNeedFinal);
       socket.off("start:streaming1", handleStartStreaming);
+      socket.off("incomming:call:existing", handleIncommingCallExisting);
+
     };
   }, [
     socket,
