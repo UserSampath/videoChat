@@ -33,22 +33,10 @@ const RoomPage = () => {
   const handleUserJoined = useCallback((joinedUserId) => {
     console.log("joinedUserId", joinedUserId);
     setRemoteSocketIds((prv) => [...prv, joinedUserId]);
-    handleCallUser(joinedUserId);
+    // handleCallUser(joinedUserId);
   }, []);
 
-  const handleCallExistingUser = useCallback(
-    async (id) => {
-      console.log("handleCallUser", id);
-      const peerService = new PeerService();
-      const offer = await peerService.getOffer();
-      setPeerConnections((prev) => [
-        ...prev,
-        { id: `existing_${id}`, peer: peerService },
-      ]);
-      socket.emit("existing:user:call", { to: id, offer });
-    },
-    [socket]
-  );
+
     const handleCallUser = useCallback(
       async (id) => {
         console.log("handleCallUser", id);
@@ -101,20 +89,24 @@ const RoomPage = () => {
 const sendStreams = useCallback(
   (id) => {
     console.log("sendStreams", peerConnections, id);
-    if (myStream) {
+
       peerConnections.forEach((peer) => {
         if (peer.id === id) {
           console.log(peer.peer, "in for");
-          for (const track of myStream.getTracks()) {
-            peer.peer.peer.addTrack(track, myStream);
+          const senders = peer.peer.peer.getSenders();
+          const existingSender = senders.find(
+            (sender) => sender.track === myStream.getTracks()[0]
+          );
+          if (!existingSender) {
+            for (const track of myStream.getTracks()) {
+              peer.peer.peer.addTrack(track, myStream);
+            }
+          } else {
+            console.log("Sender already exists for this track.");
           }
         }
       });
-    } else {
-      console.error("myStream is not available yet");
-      // Repeat the function call after a short delay
-      setTimeout(() => sendStreams(id), 1000); // Adjust the delay as needed
-    }
+    
   },
   [myStream, peerConnections]
 );
