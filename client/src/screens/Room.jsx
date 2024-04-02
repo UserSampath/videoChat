@@ -8,45 +8,47 @@ const RoomPage = () => {
   const { roomId } = useParams();
   const socket = useSocket();
   const [peerConnections, setPeerConnections] = useState([]);
-  const [remoteSocketIds, setRemoteSocketIds] = useState([]);
   const [myStream, setMyStream] = useState();
   const [remoteStreams, setRemoteStreams] = useState([]);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isAudioOn, setIsAudioOn] = useState(true);
+  const [myScreenShare, setMyScreenShare] = useState(null);
+  const [myScreenSharePeerConnections, setMyScreenSharePeerConnections] = useState([]);
 
   useEffect(() => {
     socket.emit("room:join", { room: roomId });
   }, []);
 
-  const handleOtherUsersInThisRoom = useCallback(async ({ otherUsersInThisRoom }) => {
-     const stream = await navigator.mediaDevices.getUserMedia({
+  const handleOtherUsersInThisRoom = useCallback(
+    async ({ otherUsersInThisRoom }) => {
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true,
       });
       setMyStream(stream);
-    console.log("otherUsersInThisRoom", otherUsersInThisRoom);
-    otherUsersInThisRoom.forEach((user) => { 
-      handleCallUser(user);
-    })
-  }, []);
+      console.log("otherUsersInThisRoom", otherUsersInThisRoom);
+      otherUsersInThisRoom.forEach((user) => {
+        handleCallUser(user);
+      });
+    },
+    []
+  );
 
   const handleUserJoined = useCallback((joinedUserId) => {
     console.log("joinedUserId", joinedUserId);
-    setRemoteSocketIds((prv) => [...prv, joinedUserId]);
-    // handleCallUser(joinedUserId);
+    // window.alert(`${joinedUserId} is joined`);
   }, []);
 
-
-    const handleCallUser = useCallback(
-      async (id) => {
-        console.log("handleCallUser", id);
-        const peerService = new PeerService();
-        const offer = await peerService.getOffer();
-        setPeerConnections((prev) => [...prev, { id: id, peer: peerService }]);
-        socket.emit("user:call", { to: id, offer });
-      },
-      [socket]
-    );
+  const handleCallUser = useCallback(
+    async (id) => {
+      console.log("handleCallUser", id);
+      const peerService = new PeerService();
+      const offer = await peerService.getOffer();
+      setPeerConnections((prev) => [...prev, { id: id, peer: peerService }]);
+      socket.emit("user:call", { to: id, offer });
+    },
+    [socket]
+  );
   const handleIncommingCall = useCallback(
     async ({ from, offer }) => {
       console.log(`Incoming Call`, from, offer);
@@ -57,19 +59,19 @@ const RoomPage = () => {
     },
     [socket]
   );
-    const handleIncommingCallExisting = useCallback(
-      async ({ from, offer }) => {
-        console.log(`Incoming Call`, from, offer);
-        const peerService = new PeerService();
-        const ans = await peerService.getAnswer(offer);
-        setPeerConnections((prev) => [
-          ...prev,
-          { id:`existing_${from}`, peer: peerService },
-        ]);
-        socket.emit("call:accepted", { to: from, ans });
-      },
-      [socket]
-    );
+  const handleIncommingCallExisting = useCallback(
+    async ({ from, offer }) => {
+      console.log(`Incoming Call`, from, offer);
+      const peerService = new PeerService();
+      const ans = await peerService.getAnswer(offer);
+      setPeerConnections((prev) => [
+        ...prev,
+        { id: `existing_${from}`, peer: peerService },
+      ]);
+      socket.emit("call:accepted", { to: from, ans });
+    },
+    [socket]
+  );
   const handleCallAccepted = useCallback(
     async ({ from, ans }) => {
       console.log("handleCallAccepted", from, ans);
@@ -79,16 +81,15 @@ const RoomPage = () => {
           peer.peer.setLocalDescription(ans);
           console.log("Call Accepted! sendStreams");
 
-        
           sendStreams(from);
         }
       });
     },
-    [peerConnections,myStream]
+    [peerConnections, myStream]
   );
-const sendStreams = useCallback(
-  (id) => {
-    console.log("sendStreams", peerConnections, id);
+  const sendStreams = useCallback(
+    (id) => {
+      console.log("sendStreams", peerConnections, id);
 
       peerConnections.forEach((peer) => {
         if (peer.id === id) {
@@ -106,10 +107,9 @@ const sendStreams = useCallback(
           }
         }
       });
-    
-  },
-  [myStream, peerConnections]
-);
+    },
+    [myStream, peerConnections]
+  );
 
   const handleNegoNeeded = useCallback(
     async (id) => {
@@ -179,6 +179,42 @@ const sendStreams = useCallback(
     }
   }, [myStream, peerConnections, sendStreams]);
 
+  const handleUserDisconnected = useCallback(
+    async ({ socketId }) => {
+      console.log("disconnected", socketId);
+      peerConnections.forEach((peer) => {
+        console.log("ss");
+
+        if (peer.id == socketId) {
+          peer.peer.peer.close();
+        }
+      });
+      setPeerConnections((prev) => prev.filter((peer) => peer.id !== socketId));
+      setRemoteStreams((prev) =>
+        prev.filter((stream) => stream.id !== socketId)
+      );
+    },
+    [peerConnections]
+  );
+
+  const handleUsersInThisRoom = useCallback(async ({ usersInThisRoom }) => {
+    console.log("usersInThisRoom", usersInThisRoom);
+    const stream = await navigator.mediaDevices.getDisplayMedia({});
+    setMyScreenShare(stream);
+  }, []);
+
+
+   const handleCallUserForScreenShare = useCallback(
+     async (id) => {
+       console.log("handleCallUserForScreenShare", id);
+       const peerService = new PeerService();
+       const offer = await peerService.getOffer();
+       setMyScreenSharePeerConnections((prev) => [...prev, { id: id, peer: peerService }]);
+       socket.emit("user:call", { to: id, offer });
+     },
+     [socket]
+   );
+
   useEffect(() => {
     socket.on("otherUsersInThisRoom", handleOtherUsersInThisRoom);
     socket.on("userJoined", handleUserJoined);
@@ -188,8 +224,8 @@ const sendStreams = useCallback(
     socket.on("peer:nego:final", handleNegoNeedFinal);
     socket.on("start:streaming1", handleStartStreaming);
     socket.on("incomming:call:existing", handleIncommingCallExisting);
-
-
+    socket.on("user:disconnected", handleUserDisconnected);
+    socket.on("usersInThisRoom", handleUsersInThisRoom);
 
     return () => {
       socket.off("otherUsersInThisRoom", handleOtherUsersInThisRoom);
@@ -200,7 +236,8 @@ const sendStreams = useCallback(
       socket.off("peer:nego:final", handleNegoNeedFinal);
       socket.off("start:streaming1", handleStartStreaming);
       socket.off("incomming:call:existing", handleIncommingCallExisting);
-
+      socket.off("user:disconnected", handleUserDisconnected);
+      socket.off("usersInThisRoom", handleUsersInThisRoom);
     };
   }, [
     socket,
@@ -219,17 +256,17 @@ const sendStreams = useCallback(
         const remoteStream = ev.streams[0];
         if (remoteStream.getVideoTracks().length > 0) {
           // Check for video track
-          console.log("GOT VIDEO TRACK!!", remoteStream.id);
-        setRemoteStreams((prevStreams) => {
-          const existingStream = prevStreams.find(
-            (stream) => stream.id == remoteStream.id
-          );
-          if (!existingStream) {
-            return [...prevStreams, remoteStream];
-          } else {
-            return prevStreams; 
-          }
-        });
+          console.log("GOT VIDEO TRACK!!", remoteStream.id, peer.id, "peer id");
+          setRemoteStreams((prevStreams) => {
+            const existingStream = prevStreams.find(
+              (stream) => stream.remoteStream.id == remoteStream.id
+            );
+            if (!existingStream) {
+              return [...prevStreams, { remoteStream, id: peer.id }];
+            } else {
+              return prevStreams;
+            }
+          });
         } else {
           console.log("Got non-video track");
         }
@@ -238,7 +275,6 @@ const sendStreams = useCallback(
   }, [peerConnections]);
 
   const toggleVideo = () => {
-    // Toggle the video stream
     setIsVideoOn((prevState) => !prevState);
     myStream.getVideoTracks().forEach((track) => (track.enabled = !isVideoOn));
   };
@@ -250,30 +286,46 @@ const sendStreams = useCallback(
     });
   };
 
+  const shareMyScreen = useCallback(() => {
+    socket.emit("usersInThisRoom", { room: roomId });
+  }, [socket]);
+
   return (
     <div>
       <h1>Room Page</h1>
-      {/* {myStream && <button onClick={sendStreams}>Send Stream</button>} */}
-      {/* {remoteSocketId && <button onClick={handleCallUser}>CALL</button>} */}
       <button onClick={toggleVideo}>
         {isVideoOn ? "Turn Off Video" : "Turn On Video"}
       </button>
       <button onClick={toggleAudio}>
         {isAudioOn ? "Turn Off Audio" : "Turn On Audio"}
       </button>
-      {/* <button>stop streaming me</button> */}
-      {myStream && (
-        <>
-          <h1>My Stream</h1>
-          <ReactPlayer
-            playing
-            muted
-            height="100px"
-            width="200px"
-            url={myStream}
-          />
-        </>
-      )}
+      <button onClick={shareMyScreen}>Share My Screen</button>
+      <h1>My Stream</h1>
+      <div style={{ display: "flex" }}>
+        {myStream && (
+          <>
+            <ReactPlayer
+              playing
+              muted
+              height="100px"
+              width="200px"
+              url={myStream}
+            />
+          </>
+        )}
+
+        {myScreenShare && (
+          <>
+            <ReactPlayer
+              playing
+              muted
+              height="100px"
+              width="200px"
+              url={myScreenShare}
+            />
+          </>
+        )}
+      </div>
       {peerConnections.map((pear, index) => (
         <h5 key={index}>{pear.id}</h5>
       ))}{" "}
@@ -281,9 +333,15 @@ const sendStreams = useCallback(
       <div style={{ display: "flex" }}>
         {remoteStreams.map((stream, index) => (
           <div key={index}>
-            {/* Log the stream URL here to check if it's correct */}
-            {console.log("Remote stream URL:", stream)}
-            <ReactPlayer playing height="100px" width="200px" url={stream} />
+            <div>{stream.id}</div>
+            <div>
+              <ReactPlayer
+                playing
+                height="100px"
+                width="200px"
+                url={stream.remoteStream}
+              />
+            </div>
           </div>
         ))}
       </div>

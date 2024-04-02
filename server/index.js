@@ -31,6 +31,17 @@ io.on("connection", (socket) => {
     io.to(socket.id).emit("otherUsersInThisRoom", { otherUsersInThisRoom });
   });
 
+  socket.on("usersInThisRoom", ({ room }) => {
+    console.log("usersInThisRoom")
+    var usersInThisRoom = [];
+    users[room].forEach(user => {
+      if (socket.id != user) {
+        usersInThisRoom.push(user)
+      }
+    });
+    io.to(socket.id).emit("usersInThisRoom", { usersInThisRoom });
+  });
+
   socket.on("user:call", ({ to, offer }) => {
     io.to(to).emit("incomming:call", { from: socket.id, offer });
   });
@@ -70,7 +81,7 @@ io.on("connection", (socket) => {
     if (roomId) {
       users[roomId].forEach(user => {
         if (socket.id != user) {
-          socket.to(user).emit("user:disconnected", socket.id)
+          socket.to(user).emit("user:disconnected", { socketId: socket.id })
         }
       });
     }
