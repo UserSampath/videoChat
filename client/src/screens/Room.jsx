@@ -32,16 +32,22 @@ const RoomPage = () => {
       setMyStream(stream);
       console.log("otherUsersInThisRoom", otherUsersInThisRoom);
       otherUsersInThisRoom.forEach((user) => {
-        // handleCallUser(user);
+        handleCallUser(user);
       });
     },
     []
   );
 
-  const handleUserJoined = useCallback((joinedUserId) => {
-    console.log("joinedUserId", joinedUserId);
-    // window.alert(`${joinedUserId} is joined`);
-  }, []);
+  const handleUserJoined = useCallback(
+    (joinedUserId) => {
+      console.log("joinedUserId", joinedUserId);
+      if (myScreenShare) {
+        handleCallUserForScreen(joinedUserId);
+      }
+      // window.alert(`${joinedUserId} is joined`);
+    },
+    [myScreenShare]
+  );
 
   const handleCallUser = useCallback(
     async (id) => {
@@ -354,15 +360,6 @@ const RoomPage = () => {
     }
   }, [myStream, peerConnections, sendStreams]);
 
-  const handleStartStreamingForScreen = useCallback(() => {
-    console.log("handleStartStreamingForScreen");
-    // if (myStream) {
-    //   peerConnections.forEach((peer) => {
-    //     sendStreams(peer.id);
-    //   });
-    // }
-  }, [myStream, peerConnections, sendStreams]);
-
   const handleUserDisconnected = useCallback(
     async ({ socketId }) => {
       console.log("disconnected", socketId);
@@ -404,7 +401,7 @@ const RoomPage = () => {
     socket.on("call:acceptedForScreen", handleCallAcceptedForScreen);
     socket.on("peer:nego:neededForScreen", handleNegoNeedIncommingForScreen);
     socket.on("peer:nego:finalForScreen", handleNegoNeedFinalForScreen);
-    socket.on("start:streaming1ForScreen", handleStartStreamingForScreen);
+    // socket.on("start:streaming1ForScreen", handleStartStreamingForScreen);
 
     return () => {
       socket.off("otherUsersInThisRoom", handleOtherUsersInThisRoom);
@@ -421,7 +418,7 @@ const RoomPage = () => {
       socket.off("call:acceptedForScreen", handleCallAcceptedForScreen);
       socket.off("peer:nego:neededForScreen", handleNegoNeedIncommingForScreen);
       socket.off("peer:nego:finalForScreen", handleNegoNeedFinalForScreen);
-      socket.off("start:streaming1ForScreen", handleStartStreamingForScreen);
+      // socket.off("start:streaming1ForScreen", handleStartStreamingForScreen);
     };
   }, [
     socket,
@@ -490,14 +487,6 @@ const RoomPage = () => {
     });
   };
 
-  // useEffect(() => {
-  //   const shareS = async () => {
-  //     await navigator.mediaDevices.getDisplayMedia({}).then((stream) => {
-  //       setMyScreenShare(stream);
-  //     });
-  //   }
-  //   shareS();
-  // },[])
 
   const shareMyScreen = useCallback(async () => {
     navigator.mediaDevices
@@ -539,7 +528,8 @@ const RoomPage = () => {
         )}
 
         {myScreenShare && (
-          <>
+          <div>
+            <div>My screen share</div>
             <ReactPlayer
               playing
               muted
@@ -547,25 +537,20 @@ const RoomPage = () => {
               width="200px"
               url={myScreenShare}
             />
-          </>
+          </div>
         )}
 
         {incomingScreenVideo && (
-          <>
+          <div>
+            <div>incomming screen share</div>
             <ReactPlayer
               playing
               muted
-              height="100px"
-              width="200px"
+              height="200px"
+              width="400px"
               url={incomingScreenVideo}
             />
-          </>
-        )}
-
-        {incomingScreenVideo && (
-          <>
-            <h1>aa</h1>
-          </>
+          </div>
         )}
       </div>
       {peerConnections.map((pear, index) => (

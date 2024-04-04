@@ -86,9 +86,9 @@ io.on("connection", (socket) => {
     io.to(to).emit("start:streaming1");
   })
 
-  socket.on("start:streamingForScreen", ({ to }) => {
-    io.to(to).emit("start:streaming1ForScreen");
-  })
+  // socket.on("start:streamingForScreen", ({ to }) => {
+  //   io.to(to).emit("start:streaming1ForScreen");
+  // })
 
 
   socket.on("left:room", () => {
