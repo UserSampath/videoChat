@@ -46,6 +46,10 @@ io.on("connection", (socket) => {
     io.to(to).emit("incomming:call", { from: socket.id, offer });
   });
 
+  socket.on("user:callForScreen", ({ to, offer }) => {
+    io.to(to).emit("incomming:callForScreen", { from: socket.id, offer });
+  });
+
   socket.on("existing:user:call", ({ to, offer }) => {
     io.to(to).emit("incomming:call:existing", { from: socket.id, offer });
   });
@@ -54,9 +58,18 @@ io.on("connection", (socket) => {
     io.to(to).emit("call:accepted", { from: socket.id, ans });
   });
 
+  socket.on("call:acceptedForScreen", ({ to, ans }) => {
+    io.to(to).emit("call:acceptedForScreen", { from: socket.id, ans });
+  });
+
   socket.on("peer:nego:needed", ({ to, offer }) => {
     // console.log("peer:nego:needed", to, offer)
     io.to(to).emit("peer:nego:needed", { from: socket.id, offer });
+  });
+
+  socket.on("peer:nego:neededForScreen", ({ to, offer }) => {
+    // console.log("peer:nego:needed", to, offer)
+    io.to(to).emit("peer:nego:neededForScreen", { from: socket.id, offer });
   });
 
   socket.on("peer:nego:done", ({ to, ans }) => {
@@ -64,9 +77,20 @@ io.on("connection", (socket) => {
     io.to(to).emit("peer:nego:final", { from: socket.id, ans });
   });
 
+  socket.on("peer:nego:doneForScreen", ({ to, ans }) => {
+    // console.log("peer:nego:done", ans);
+    io.to(to).emit("peer:nego:finalForScreen", { from: socket.id, ans });
+  });
+
   socket.on("start:streaming", ({ to }) => {
     io.to(to).emit("start:streaming1");
   })
+
+  socket.on("start:streamingForScreen", ({ to }) => {
+    io.to(to).emit("start:streaming1ForScreen");
+  })
+
+
   socket.on("left:room", () => {
     console.log("left")
   })
